@@ -1,9 +1,9 @@
-name: Release
+name: Release 🚀
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*.*.*"
 
 jobs:
   release:
@@ -15,16 +15,16 @@ jobs:
         include:
           # for Arm based macs (M1 and above).
           - platform: "macos-latest"
-            label: "macos-aarch64"
+            label: "macOS (Arm64)"
             args: "--target aarch64-apple-darwin"
 
           # for Intel based macs.
           - platform: "macos-latest"
-            label: "macos-x86_64"
+            label: "macOS (x86_64)"
             args: "--target x86_64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
-    name: Release (${{ matrix.label }})
+    name: ${{ matrix.label }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,25 +32,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Determine Semantic Version
-        id: semver
-        uses: PaulHatch/semantic-version@v5.4.0
-        with:
-          search_commit_body: true
-
-      - name: Create Git tag
-        uses: rickstaa/action-create-tag@v1
-        with:
-          tag: ${{ steps.semver.outputs.version_tag }}
-
       - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          appVersion: ${{ steps.semver.outputs.version_tag }}
-          tagName: ${{ steps.semver.outputs.version_tag }}
-          releaseName: "idgen ${{ steps.semver.outputs.version_tag }}"
+          appVersion: ${{ github.ref_name }}
+          tagName: ${{ github.ref_name }}
+          releaseName: "idgen ${{ github.ref_name }}"
           releaseBody: "See the assets to download this version."
           releaseDraft: false
           prerelease: false
