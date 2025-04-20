@@ -1,6 +1,6 @@
 [package]
 name = "keyclip"
-version = "0.0.0" # Version is set to git tag on release
+version = "0.0.0-dev" # Version is set to git tag on release
 description = "A lightweight tool for instantly generating unique IDs directly to your clipboard."
 authors = ["Daniel T. Rodrigues"]
 edition = "2021"

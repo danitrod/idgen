@@ -43,7 +43,7 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let deafault_shortcut =
-                Shortcut::new(Some(Modifiers::META | Modifiers::SHIFT), Code::KeyU);
+                Shortcut::new(Some(Modifiers::META | Modifiers::SHIFT), Code::KeyK);
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(move |app, shortcut, event| {

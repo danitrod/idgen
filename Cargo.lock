@@ -1966,7 +1966,7 @@ dependencies = [
 
 [[package]]
 name = "keyclip"
-version = "0.0.0"
+version = "0.0.0-dev"
 dependencies = [
  "serde",
  "serde_json",
