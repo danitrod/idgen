@@ -72,7 +72,7 @@ jobs:
         with:
           appVersion: ${{ needs.tag.outputs.version }}
           tagName: v${{ needs.tag.outputs.version }}
-          releaseName: "idgen v${{ needs.tag.outputs.version }}"
+          releaseName: "keyclip v${{ needs.tag.outputs.version }}"
           releaseBody: "See the assets to download this version."
           releaseDraft: false
           prerelease: false
