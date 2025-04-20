@@ -4,6 +4,7 @@ version = "0.0.0" # Version is set to git tag on release
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
+homepage = "https://github.com/danitrod/idgen"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
