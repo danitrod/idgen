@@ -1,4 +1,4 @@
-name: Create Tag 🏷️
+name: Tag 🏷️
 
 on:
   push:
@@ -24,3 +24,8 @@ jobs:
         uses: rickstaa/action-create-tag@v1
         with:
           tag: ${{ steps.semver.outputs.version_tag }}
+
+      - name: Call release workflow
+        uses: ./.github/workflows/release.yaml
+        with:
+          version: ${{ steps.semver.outputs.version_tag }}

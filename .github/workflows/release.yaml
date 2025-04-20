@@ -1,9 +1,11 @@
 name: Release 🚀
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_call:
+    inputs:
+      version:
+        description: "Semantic version"
+        required: true
 
 jobs:
   release:
@@ -37,9 +39,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          appVersion: ${{ github.ref_name }}
-          tagName: ${{ github.ref_name }}
-          releaseName: "idgen ${{ github.ref_name }}"
+          appVersion: ${{ inputs.version }}
+          tagName: ${{ inputs.version }}
+          releaseName: "idgen ${{ inputs.version }}"
           releaseBody: "See the assets to download this version."
           releaseDraft: false
           prerelease: false
