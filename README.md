@@ -1,5 +1,5 @@
-# idgen
+# keyclip
 
-![idgen icon](./icons/icon.png)
+![keyclip icon](./icons/128x128.png)
 
 A simple tool to add a unique identifier to your clipboard.

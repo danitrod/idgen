@@ -15,7 +15,7 @@ pub fn run() {
             let info = MenuItem::with_id(
                 app,
                 "info",
-                format!("idgen - Version {}", app.package_info().version),
+                format!("keyclip - Version {}", app.package_info().version),
                 false,
                 None::<&str>,
             )?;
@@ -29,7 +29,7 @@ pub fn run() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(true)
-                .tooltip("idgen")
+                .tooltip("keyclip")
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "quit" => {
                         println!("Quit menu item clicked");

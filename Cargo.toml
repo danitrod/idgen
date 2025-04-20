@@ -1,10 +1,10 @@
 [package]
-name = "idgen"
+name = "keyclip"
 version = "0.0.0" # Version is set to git tag on release
-description = "A Tauri App"
-authors = ["you"]
+description = "A lightweight tool for instantly generating unique IDs directly to your clipboard."
+authors = ["Daniel T. Rodrigues"]
 edition = "2021"
-homepage = "https://github.com/danitrod/idgen"
+homepage = "https://github.com/danitrod/keyclip"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,7 +12,7 @@ homepage = "https://github.com/danitrod/idgen"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "idgen_lib"
+name = "keyclip_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
