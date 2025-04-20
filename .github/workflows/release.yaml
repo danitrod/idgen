@@ -61,8 +61,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           appVersion: ${{ needs.tag.outputs.version }}
-          tagName: ${{}}
-          releaseName: "idgen ${{}}"
+          tagName: ${{ needs.tag.outputs.version }}
+          releaseName: "idgen ${{ needs.tag.outputs.version }}"
           releaseBody: "See the assets to download this version."
           releaseDraft: false
           prerelease: false
