@@ -1,14 +1,35 @@
 name: Release 🚀
 
 on:
-  workflow_call:
-    inputs:
-      version:
-        description: "Semantic version"
-        required: true
+  push:
+    branches:
+      - main
 
 jobs:
+  tag:
+    name: Tag 🏷️
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semver.outputs.version_tag }}
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine Semantic Version
+        id: semver
+        uses: PaulHatch/semantic-version@v5.4.0
+        with:
+          search_commit_body: true
+
+      - name: Create Git tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ steps.semver.outputs.version_tag }}
+
   release:
+    needs: tag
     permissions:
       contents: write
     strategy:
@@ -39,9 +60,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          appVersion: ${{ inputs.version }}
-          tagName: ${{ inputs.version }}
-          releaseName: "idgen ${{ inputs.version }}"
+          appVersion: ${{ needs.tag.outputs.version }}
+          tagName: ${{}}
+          releaseName: "idgen ${{}}"
           releaseBody: "See the assets to download this version."
           releaseDraft: false
           prerelease: false
