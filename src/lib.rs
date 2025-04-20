@@ -1,20 +1,29 @@
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
 };
-
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use uuid::Uuid;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            let info = MenuItem::with_id(
+                app,
+                "info",
+                format!("idgen - Version {}", app.package_info().version),
+                false,
+                None::<&str>,
+            )?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&quit_i])?;
+            let menu = Menu::with_items(
+                app,
+                &[&info, &PredefinedMenuItem::separator(app).unwrap(), &quit_i],
+            )?;
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
@@ -33,9 +42,25 @@ pub fn run() {
                 .build(app)?;
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            let deafault_shortcut =
+                Shortcut::new(Some(Modifiers::META | Modifiers::SHIFT), Code::KeyU);
+            app.handle().plugin(
+                tauri_plugin_global_shortcut::Builder::new()
+                    .with_handler(move |app, shortcut, event| {
+                        println!("{:?}", shortcut);
+                        if shortcut == &deafault_shortcut && event.state() == ShortcutState::Pressed
+                        {
+                            let uuid = Uuid::new_v4();
+                            app.clipboard().write_text(uuid.to_string()).unwrap();
+                        }
+                    })
+                    .build(),
+            )?;
+
+            app.global_shortcut().register(deafault_shortcut)?;
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
