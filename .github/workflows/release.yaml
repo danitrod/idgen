@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # for Arm based macs (M1 and above).
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+
+          # for Intel based macs.
+          - platform: "macos-latest"
+            args: "--target x86_64-apple-darwin"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli
+
+      - name: Determine Semantic Version
+        id: semver
+        uses: PaulHatch/semantic-version@v5
+        with:
+          search_commit_body: true
+
+      - name: Create Git tag
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: ${{ steps.semver.outputs.version_tag }}
+
+      - name: Build and release Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          appVersion: ${{ steps.semver.outputs.version_tag }}
+          tagName: ${{ steps.semver.outputs.version_tag }}
+          releaseName: "idgen ${{ steps.semver.outputs.version_tag }}"
+          releaseBody: "See the assets to download this version."
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
