@@ -15,22 +15,22 @@ jobs:
         include:
           # for Arm based macs (M1 and above).
           - platform: "macos-latest"
+            label: "macos-aarch64"
             args: "--target aarch64-apple-darwin"
 
           # for Intel based macs.
           - platform: "macos-latest"
+            label: "macos-x86_64"
             args: "--target x86_64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
+    name: Release (${{ matrix.label }})
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli
 
       - name: Determine Semantic Version
         id: semver
