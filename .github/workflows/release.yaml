@@ -23,6 +23,7 @@ jobs:
         id: semver
         uses: PaulHatch/semantic-version@v5.4.0
         with:
+          tag_prefix: ""
           search_commit_body: true
 
       - name: Create Git tag
@@ -70,8 +71,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           appVersion: ${{ needs.tag.outputs.version }}
-          tagName: ${{ needs.tag.outputs.version }}
-          releaseName: "idgen ${{ needs.tag.outputs.version }}"
+          tagName: v${{ needs.tag.outputs.version }}
+          releaseName: "idgen v${{ needs.tag.outputs.version }}"
           releaseBody: "See the assets to download this version."
           releaseDraft: false
           prerelease: false
