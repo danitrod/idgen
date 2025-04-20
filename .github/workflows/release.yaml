@@ -59,6 +59,11 @@ jobs:
         with:
           target: ${{ matrix.target }}
 
+      - name: Update Cargo.toml version to tag
+        run: |
+          cargo install cargo-edit
+          cargo set-version ${{ needs.tag.outputs.version }}
+
       - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
