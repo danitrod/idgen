@@ -113,7 +113,6 @@ fn toggle_autostart<R: Runtime>(
         let _ = autostart_manager.enable();
     }
     store.set(AUTOSTART_KEY, !autostart_enabled);
-    store.close_resource();
     let _ = menu_item.set_checked(!autostart_enabled);
     Ok(())
 }
