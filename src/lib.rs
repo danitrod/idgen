@@ -17,11 +17,17 @@ const STORE_FILE: &str = "store.json";
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_autostart::init(MacosLauncher::default(), None))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            log::info!("Setting up app");
             let store = app.store(STORE_FILE)?;
             let autostart_enabled = if let Some(val) = store.get(AUTOSTART_KEY) {
                 val.as_bool().unwrap_or(false)
@@ -77,7 +83,7 @@ pub fn run() {
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(move |app, shortcut, event| {
-                        println!("{:?}", shortcut);
+                        log::info!("Shortcut pressed: {:?}", shortcut);
                         if shortcut == &deafault_shortcut && event.state() == ShortcutState::Pressed
                         {
                             let uuid = Uuid::new_v4();
@@ -88,6 +94,7 @@ pub fn run() {
                     .build(),
             )?;
 
+            log::info!("Registering global shortcut");
             app.global_shortcut().register(deafault_shortcut)?;
 
             Ok(())
