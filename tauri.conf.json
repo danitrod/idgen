@@ -12,6 +12,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": ["assets/*"],
     "publisher": "danitrod.dev",
     "shortDescription": "A lightweight tool for instantly generating unique IDs directly to your clipboard."
   },

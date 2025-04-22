@@ -1,7 +1,9 @@
+use std::{error::Error, io::BufReader};
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
+    path::BaseDirectory,
     tray::TrayIconBuilder,
-    Runtime,
+    Manager, Runtime,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -80,6 +82,7 @@ pub fn run() {
                         {
                             let uuid = Uuid::new_v4();
                             app.clipboard().write_text(uuid.to_string()).unwrap();
+                            let _ = play_notification(app);
                         }
                     })
                     .build(),
@@ -114,5 +117,21 @@ fn toggle_autostart<R: Runtime>(
     }
     store.set(AUTOSTART_KEY, !autostart_enabled);
     let _ = menu_item.set_checked(!autostart_enabled);
+    Ok(())
+}
+
+fn play_notification(app: &tauri::AppHandle) -> Result<(), Box<dyn Error>> {
+    let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+
+    let path = app
+        .path()
+        .resolve("assets/notification.mp3", BaseDirectory::Resource)?;
+    let sink = rodio::Sink::try_new(&handle).unwrap();
+
+    let file = std::fs::File::open(path).unwrap();
+    sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
+
+    sink.sleep_until_end();
+
     Ok(())
 }
