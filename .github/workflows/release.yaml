@@ -64,6 +64,7 @@ jobs:
         run: |
           cargo install cargo-edit
           cargo set-version ${{ needs.tag.outputs.version }}
+          cargo clean
 
       - name: Install Apple certificate
         if: runner.os == 'macOS'
