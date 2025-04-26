@@ -1,4 +1,5 @@
-use std::{error::Error, io::BufReader};
+use rodio::{Decoder, OutputStream, Sink};
+use std::{error::Error, fs::File, io::BufReader, thread};
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     path::BaseDirectory,
@@ -27,7 +28,6 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            log::info!("Setting up app");
             let store = app.store(STORE_FILE)?;
             let autostart_enabled = if let Some(val) = store.get(AUTOSTART_KEY) {
                 val.as_bool().unwrap_or(false)
@@ -35,7 +35,6 @@ pub fn run() {
                 store.set(AUTOSTART_KEY, false);
                 false
             };
-            store.close_resource();
 
             let info = MenuItem::with_id(
                 app,
@@ -83,9 +82,9 @@ pub fn run() {
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(move |app, shortcut, event| {
-                        log::info!("Shortcut pressed: {:?}", shortcut);
                         if shortcut == &deafault_shortcut && event.state() == ShortcutState::Pressed
                         {
+                            log::info!("Shortcut pressed: {:?}", shortcut);
                             let uuid = Uuid::new_v4();
                             app.clipboard().write_text(uuid.to_string()).unwrap();
                             let _ = play_notification(app);
@@ -94,7 +93,6 @@ pub fn run() {
                     .build(),
             )?;
 
-            log::info!("Registering global shortcut");
             app.global_shortcut().register(deafault_shortcut)?;
 
             Ok(())
@@ -128,17 +126,20 @@ fn toggle_autostart<R: Runtime>(
 }
 
 fn play_notification(app: &tauri::AppHandle) -> Result<(), Box<dyn Error>> {
-    let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
-
     let path = app
         .path()
         .resolve("assets/notification.mp3", BaseDirectory::Resource)?;
-    let sink = rodio::Sink::try_new(&handle).unwrap();
 
-    let file = std::fs::File::open(path).unwrap();
-    sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
+    thread::spawn(move || {
+        let (_stream, handle) = OutputStream::try_default().unwrap();
 
-    sink.sleep_until_end();
+        let sink = Sink::try_new(&handle).unwrap();
+
+        let file = File::open(path).unwrap();
+        sink.append(Decoder::new(BufReader::new(file)).unwrap());
+
+        sink.sleep_until_end();
+    });
 
     Ok(())
 }
