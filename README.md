@@ -7,7 +7,12 @@ Do you need to generate quick UUIDs from time to time? This is the tool for you 
 **keyclip** is a simple menu bar tool that adds a unique identifier to your clipboard with a single
 keypress.
 
+## Usage
+
 Press `Cmd+Shift+K` anywhere to instantly copy a UUID to your clipboard.
+
+You can use the menu bar icon to change your preferred hotkey. Simply click `Reset hotkey...`, and
+press your preferred combination of keys. The app will remember your choice.
 
 ## Installation
 

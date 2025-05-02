@@ -1,5 +1,12 @@
 use rodio::{Decoder, OutputStream, Sink};
-use std::{error::Error, fs::File, io::BufReader, str::FromStr, thread};
+use std::{
+    error::Error,
+    fs::File,
+    io::BufReader,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    thread,
+};
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     path::BaseDirectory,
@@ -12,6 +19,8 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use tauri_plugin_store::StoreExt;
 use uuid::Uuid;
 
+mod hotkeys;
+
 const STORE_FILE: &str = "store.json";
 
 // Settings keys in store
@@ -21,6 +30,11 @@ const HOTKEY_CODE_KEY: &str = "hotkey_code";
 
 const DEFAULT_MODIFIERS: u32 = Modifiers::META.bits() | Modifiers::SHIFT.bits();
 const DEFAULT_KEY: &str = "KeyK";
+
+struct AppState {
+    is_recording_hotkey: Arc<Mutex<bool>>,
+    current_hotkey_item: Arc<Mutex<(u32, String)>>,
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,7 +48,13 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(MacosLauncher::default(), None))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(AppState {
+            is_recording_hotkey: Arc::new(Mutex::new(false)),
+            current_hotkey_item: Arc::new(Mutex::new((DEFAULT_MODIFIERS, DEFAULT_KEY.to_string()))),
+        })
         .setup(|app| {
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             let store = app.store(STORE_FILE)?;
             let autostart_enabled = if let Some(val) = store.get(AUTOSTART_KEY) {
                 val.as_bool().unwrap_or(false)
@@ -42,47 +62,6 @@ pub fn run() {
                 store.set(AUTOSTART_KEY, false);
                 false
             };
-
-            let info = MenuItem::with_id(
-                app,
-                "info",
-                format!("keyclip - Version {}", app.package_info().version),
-                false,
-                None::<&str>,
-            )?;
-            let autostart_menu_item = CheckMenuItem::with_id(
-                app,
-                "toggle_autostart",
-                "Start on Login",
-                true,
-                autostart_enabled,
-                None::<&str>,
-            )?;
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &info,
-                    &PredefinedMenuItem::separator(app).unwrap(),
-                    &autostart_menu_item,
-                    &PredefinedMenuItem::quit(app, Some("Quit")).unwrap(),
-                ],
-            )?;
-
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .show_menu_on_left_click(true)
-                .tooltip("keyclip")
-                .on_menu_event(move |app, event| match event.id().as_ref() {
-                    "toggle_autostart" => {
-                        let _ = toggle_autostart(app, &autostart_menu_item);
-                    }
-                    _ => {
-                        println!("Unknown menu item clicked");
-                    }
-                })
-                .build(app)?;
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let modifiers = store
                 .get(HOTKEY_MODIFIERS_KEY)
@@ -106,13 +85,92 @@ pub fn run() {
                 Code::KeyK
             });
 
-            let clip_shortcut = Shortcut::new(Some(modifiers), code);
+            let app_info = MenuItem::with_id(
+                app,
+                "info",
+                format!("keyclip - Version {}", app.package_info().version),
+                false,
+                None::<&str>,
+            )?;
+            let hotkey_info = MenuItem::with_id(
+                app,
+                "hotkey_info",
+                format!("Hotkey: {}", hotkeys::format_hotkey(modifiers, &code)),
+                false,
+                None::<&str>,
+            )?;
+            let reset_hotkey =
+                MenuItem::with_id(app, "reset_hotkey", "Reset hotkey...", true, None::<&str>)?;
+            let autostart_menu_item = CheckMenuItem::with_id(
+                app,
+                "toggle_autostart",
+                "Start on Login",
+                true,
+                autostart_enabled,
+                None::<&str>,
+            )?;
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &app_info,
+                    &hotkey_info,
+                    &PredefinedMenuItem::separator(app).unwrap(),
+                    &reset_hotkey,
+                    &autostart_menu_item,
+                    &PredefinedMenuItem::quit(app, Some("Quit")).unwrap(),
+                ],
+            )?;
+
+            TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .show_menu_on_left_click(true)
+                .tooltip("keyclip")
+                .on_menu_event(move |app, event| match event.id().as_ref() {
+                    "toggle_autostart" => {
+                        let _ = toggle_autostart(app, &autostart_menu_item);
+                    }
+                    "reset_hotkey" => {
+                        let state = app.state::<AppState>();
+                        *state.is_recording_hotkey.lock().unwrap() = true;
+                        let (modifiers, key) = hotkeys::capture_hotkey(app);
+                        let store = app.store(STORE_FILE).unwrap();
+                        store.set(HOTKEY_MODIFIERS_KEY, modifiers.bits() as i64);
+                        store.set(HOTKEY_CODE_KEY, key.to_string());
+                        hotkey_info
+                            .set_text(format!(
+                                "Hotkey: {}",
+                                hotkeys::format_hotkey(modifiers, &key)
+                            ))
+                            .expect("Failed to set hotkey info text");
+                        *state.is_recording_hotkey.lock().unwrap() = false;
+                    }
+                    _ => {
+                        println!("Unknown menu item clicked");
+                    }
+                })
+                .build(app)?;
+
+            let state = app.state::<AppState>();
+            let mut state_hotkey = state.current_hotkey_item.lock().unwrap();
+            *state_hotkey = (modifiers.bits(), code.to_string());
 
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
                     .with_handler(move |app, shortcut, event| {
-                        if shortcut == &clip_shortcut && event.state() == ShortcutState::Pressed {
-                            log::info!("Clip shortcut pressed: {:?}", clip_shortcut);
+                        let state = app.state::<AppState>();
+                        if *state.is_recording_hotkey.lock().unwrap() {
+                            return;
+                        }
+
+                        let hotkey = state.current_hotkey_item.lock().unwrap();
+                        let hotkey = Shortcut::new(
+                            Modifiers::from_bits(hotkey.0),
+                            Code::from_str(&hotkey.1).expect("Invalid key"),
+                        );
+                        log::info!("A shortcut was pressed: {:?}", shortcut);
+                        if shortcut == &hotkey && event.state() == ShortcutState::Pressed {
+                            log::info!("Clip hotkey pressed: {:?}", hotkey);
                             let uuid = Uuid::new_v4();
                             app.clipboard().write_text(uuid.to_string()).unwrap();
                             let _ = play_notification(app);
@@ -121,7 +179,8 @@ pub fn run() {
                     .build(),
             )?;
 
-            app.global_shortcut().register(clip_shortcut)?;
+            app.global_shortcut()
+                .register(Shortcut::new(Some(modifiers), code))?;
 
             Ok(())
         })
