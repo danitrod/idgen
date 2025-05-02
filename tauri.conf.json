@@ -16,16 +16,32 @@
     "publisher": "danitrod.dev",
     "shortDescription": "A lightweight tool for instantly generating unique IDs directly to your clipboard."
   },
+  "build": {
+    "frontendDist": "ui"
+  },
   "app": {
     "windows": [
       {
         "label": "main",
-        "visible": false,
         "url": "about:blank",
+        "visible": false
+      },
+      {
+        "label": "key-selector",
+        "visible": true,
+        "url": "key-selector.html",
         "resizable": false,
         "fullscreen": false,
-        "title": "keyclip"
+        "alwaysOnTop": true,
+        "center": true,
+        "closable": false,
+        "create": false,
+        "title": "Change Hotkey",
+        "decorations": false,
+        "width": 300,
+        "height": 200
       }
-    ]
+    ],
+    "withGlobalTauri": true
   }
 }

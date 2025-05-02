@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Capture Hotkey</title>
+    <style>
+      body {
+        background-color: #000;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        text-align: center;
+        cursor: default;
+        user-select: none;
+      }
+      .instruction {
+        font-size: 18px;
+        padding: 20px;
+        border: 1px solid #333;
+        border-radius: 8px;
+        background-color: #111;
+        max-width: 80%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="instruction">
+      Press any key combination<br />(Esc to cancel)
+    </div>
+
+    <script>
+      document.addEventListener("keydown", async (e) => {
+        e.preventDefault();
+
+        if (e.code === "Escape") {
+          return window.__TAURI__.window.getCurrentWindow().close();
+        }
+
+        const modifiers = {
+          meta: e.metaKey,
+          shift: e.shiftKey,
+          alt: e.altKey,
+          control: e.ctrlKey,
+        };
+
+        if (!e.code.startsWith("Key")) {
+          return;
+        }
+
+        await window.__TAURI__.core.invoke("hotkey_selected", {
+          modifiers,
+          code: e.code,
+        });
+        window.__TAURI__.window.getCurrentWindow().close();
+      });
+
+      window.addEventListener("blur", () => {
+        window.__TAURI__.window.getCurrentWindow().close();
+      });
+    </script>
+  </body>
+</html>

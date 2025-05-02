@@ -11,7 +11,7 @@ use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     path::BaseDirectory,
     tray::TrayIconBuilder,
-    Manager, Runtime,
+    AppHandle, Manager, Runtime, WebviewWindowBuilder, Wry,
 };
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -34,6 +34,7 @@ const DEFAULT_KEY: &str = "KeyK";
 struct AppState {
     is_recording_hotkey: Arc<Mutex<bool>>,
     current_hotkey_item: Arc<Mutex<(u32, String)>>,
+    hotkey_info_menu_item: Arc<Mutex<Option<MenuItem<Wry>>>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -48,9 +49,11 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(MacosLauncher::default(), None))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .invoke_handler(tauri::generate_handler![hotkey_selected,])
         .manage(AppState {
             is_recording_hotkey: Arc::new(Mutex::new(false)),
             current_hotkey_item: Arc::new(Mutex::new((DEFAULT_MODIFIERS, DEFAULT_KEY.to_string()))),
+            hotkey_info_menu_item: Arc::new(Mutex::new(None)),
         })
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -99,8 +102,8 @@ pub fn run() {
                 false,
                 None::<&str>,
             )?;
-            let reset_hotkey =
-                MenuItem::with_id(app, "reset_hotkey", "Reset hotkey...", true, None::<&str>)?;
+            let change_hotkey =
+                MenuItem::with_id(app, "change_hotkey", "Change hotkey...", true, None::<&str>)?;
             let autostart_menu_item = CheckMenuItem::with_id(
                 app,
                 "toggle_autostart",
@@ -115,7 +118,7 @@ pub fn run() {
                     &app_info,
                     &hotkey_info,
                     &PredefinedMenuItem::separator(app).unwrap(),
-                    &reset_hotkey,
+                    &change_hotkey,
                     &autostart_menu_item,
                     &PredefinedMenuItem::quit(app, Some("Quit")).unwrap(),
                 ],
@@ -130,20 +133,16 @@ pub fn run() {
                     "toggle_autostart" => {
                         let _ = toggle_autostart(app, &autostart_menu_item);
                     }
-                    "reset_hotkey" => {
+                    "change_hotkey" => {
                         let state = app.state::<AppState>();
                         *state.is_recording_hotkey.lock().unwrap() = true;
-                        let (modifiers, key) = hotkeys::capture_hotkey(app);
-                        let store = app.store(STORE_FILE).unwrap();
-                        store.set(HOTKEY_MODIFIERS_KEY, modifiers.bits() as i64);
-                        store.set(HOTKEY_CODE_KEY, key.to_string());
-                        hotkey_info
-                            .set_text(format!(
-                                "Hotkey: {}",
-                                hotkeys::format_hotkey(modifiers, &key)
-                            ))
-                            .expect("Failed to set hotkey info text");
-                        *state.is_recording_hotkey.lock().unwrap() = false;
+                        WebviewWindowBuilder::from_config(
+                            app,
+                            &app.config().app.windows.get(1).unwrap().clone(),
+                        )
+                        .unwrap()
+                        .build()
+                        .unwrap();
                     }
                     _ => {
                         println!("Unknown menu item clicked");
@@ -154,6 +153,8 @@ pub fn run() {
             let state = app.state::<AppState>();
             let mut state_hotkey = state.current_hotkey_item.lock().unwrap();
             *state_hotkey = (modifiers.bits(), code.to_string());
+            let mut state_hotkey_info = state.hotkey_info_menu_item.lock().unwrap();
+            *state_hotkey_info = Some(hotkey_info);
 
             app.handle().plugin(
                 tauri_plugin_global_shortcut::Builder::new()
@@ -229,4 +230,44 @@ fn play_notification(app: &tauri::AppHandle) -> Result<(), Box<dyn Error>> {
     });
 
     Ok(())
+}
+
+#[tauri::command]
+fn hotkey_selected(app: AppHandle, modifiers: ModifiersInput, code: String) {
+    let modifiers = Modifiers::from_bits(
+        (if modifiers.meta {
+            Modifiers::META.bits()
+        } else {
+            0
+        }) | (if modifiers.shift {
+            Modifiers::SHIFT.bits()
+        } else {
+            0
+        }) | (if modifiers.alt {
+            Modifiers::ALT.bits()
+        } else {
+            0
+        }) | (if modifiers.control {
+            Modifiers::CONTROL.bits()
+        } else {
+            0
+        }),
+    )
+    .ok_or(Modifiers::empty())
+    .unwrap();
+
+    let code = Code::from_str(&code).unwrap_or_else(|_| {
+        log::warn!("Tried to parse invalid key: {}. Using default", code);
+        Code::KeyK
+    });
+
+    hotkeys::change_hotkey(&app, modifiers, code);
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ModifiersInput {
+    meta: bool,
+    shift: bool,
+    alt: bool,
+    control: bool,
 }

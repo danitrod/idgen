@@ -11,7 +11,7 @@ keypress.
 
 Press `Cmd+Shift+K` anywhere to instantly copy a UUID to your clipboard.
 
-You can use the menu bar icon to change your preferred hotkey. Simply click `Reset hotkey...`, and
+You can use the menu bar icon to change your preferred hotkey. Simply click `Change hotkey...`, and
 press your preferred combination of keys. The app will remember your choice.
 
 ## Installation
