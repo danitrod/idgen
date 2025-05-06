@@ -165,6 +165,7 @@ pub fn run() {
                     &autostart_menu_item,
                     &play_sound_menu_item,
                     &prefer_ulid_menu_item,
+                    &PredefinedMenuItem::separator(app).unwrap(),
                     &PredefinedMenuItem::quit(app, Some("Quit")).unwrap(),
                 ],
             )?;
