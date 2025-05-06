@@ -17,6 +17,7 @@ use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_store::StoreExt;
+use ulid::Ulid;
 use uuid::Uuid;
 
 mod hotkeys;
@@ -28,6 +29,7 @@ const AUTOSTART_KEY: &str = "autostart_enabled";
 const HOTKEY_MODIFIERS_KEY: &str = "hotkey_modifiers";
 const HOTKEY_CODE_KEY: &str = "hotkey_code";
 const PLAY_SOUND_KEY: &str = "play_sound";
+const PREFER_ULID_KEY: &str = "prefer_ulid";
 
 const DEFAULT_MODIFIERS: u32 = Modifiers::META.bits() | Modifiers::SHIFT.bits();
 const DEFAULT_KEY: &str = "KeyK";
@@ -37,6 +39,7 @@ struct AppState {
     current_hotkey_item: Arc<Mutex<(u32, String)>>,
     hotkey_info_menu_item: Arc<Mutex<Option<MenuItem<Wry>>>>,
     play_sound: Arc<Mutex<bool>>,
+    prefer_ulid: Arc<Mutex<bool>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -57,6 +60,7 @@ pub fn run() {
             current_hotkey_item: Arc::new(Mutex::new((DEFAULT_MODIFIERS, DEFAULT_KEY.to_string()))),
             hotkey_info_menu_item: Arc::new(Mutex::new(None)),
             play_sound: Arc::new(Mutex::new(true)),
+            prefer_ulid: Arc::new(Mutex::new(false)),
         })
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -76,9 +80,18 @@ pub fn run() {
                 true
             };
 
+            let prefer_ulid = if let Some(val) = store.get(PREFER_ULID_KEY) {
+                val.as_bool().unwrap_or(false)
+            } else {
+                store.set(PREFER_ULID_KEY, false);
+                false
+            };
+
             let app_state = app.state::<AppState>();
             let mut sound_state = app_state.play_sound.lock().unwrap();
             *sound_state = play_sound;
+            let mut prefer_ulid_state = app_state.prefer_ulid.lock().unwrap();
+            *prefer_ulid_state = prefer_ulid;
 
             let modifiers = store
                 .get(HOTKEY_MODIFIERS_KEY)
@@ -134,6 +147,14 @@ pub fn run() {
                 play_sound,
                 None::<&str>,
             )?;
+            let prefer_ulid_menu_item = CheckMenuItem::with_id(
+                app,
+                "toggle_prefer_ulid",
+                "Generate ULID instead of UUID",
+                true,
+                prefer_ulid,
+                None::<&str>,
+            )?;
             let menu = Menu::with_items(
                 app,
                 &[
@@ -143,6 +164,7 @@ pub fn run() {
                     &change_hotkey,
                     &autostart_menu_item,
                     &play_sound_menu_item,
+                    &prefer_ulid_menu_item,
                     &PredefinedMenuItem::quit(app, Some("Quit")).unwrap(),
                 ],
             )?;
@@ -174,6 +196,13 @@ pub fn run() {
                         store.set(PLAY_SOUND_KEY, *sound_state);
                         let _ = play_sound_menu_item.set_checked(*sound_state);
                     }
+                    "toggle_prefer_ulid" => {
+                        let app_state = app.state::<AppState>();
+                        let mut prefer_ulid_state = app_state.prefer_ulid.lock().unwrap();
+                        *prefer_ulid_state = !*prefer_ulid_state;
+                        store.set(PREFER_ULID_KEY, *prefer_ulid_state);
+                        let _ = prefer_ulid_menu_item.set_checked(*prefer_ulid_state);
+                    }
                     _ => {
                         println!("Unknown menu item clicked");
                     }
@@ -202,8 +231,12 @@ pub fn run() {
 
                         if shortcut == &hotkey && event.state() == ShortcutState::Pressed {
                             log::info!("Clip hotkey pressed: {:?}", hotkey);
-                            let uuid = Uuid::new_v4();
-                            app.clipboard().write_text(uuid.to_string()).unwrap();
+                            let id = if *state.prefer_ulid.lock().unwrap() {
+                                Uuid::from_bytes(Ulid::new().to_bytes()).to_string()
+                            } else {
+                                Uuid::new_v4().to_string()
+                            };
+                            app.clipboard().write_text(id).unwrap();
                             if *state.play_sound.lock().unwrap() {
                                 let _ = play_clip_sound(app);
                             }
