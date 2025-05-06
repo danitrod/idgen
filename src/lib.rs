@@ -27,6 +27,7 @@ const STORE_FILE: &str = "store.json";
 const AUTOSTART_KEY: &str = "autostart_enabled";
 const HOTKEY_MODIFIERS_KEY: &str = "hotkey_modifiers";
 const HOTKEY_CODE_KEY: &str = "hotkey_code";
+const PLAY_SOUND_KEY: &str = "play_sound";
 
 const DEFAULT_MODIFIERS: u32 = Modifiers::META.bits() | Modifiers::SHIFT.bits();
 const DEFAULT_KEY: &str = "KeyK";
@@ -35,6 +36,7 @@ struct AppState {
     is_recording_hotkey: Arc<Mutex<bool>>,
     current_hotkey_item: Arc<Mutex<(u32, String)>>,
     hotkey_info_menu_item: Arc<Mutex<Option<MenuItem<Wry>>>>,
+    play_sound: Arc<Mutex<bool>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -54,6 +56,7 @@ pub fn run() {
             is_recording_hotkey: Arc::new(Mutex::new(false)),
             current_hotkey_item: Arc::new(Mutex::new((DEFAULT_MODIFIERS, DEFAULT_KEY.to_string()))),
             hotkey_info_menu_item: Arc::new(Mutex::new(None)),
+            play_sound: Arc::new(Mutex::new(true)),
         })
         .setup(|app| {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -65,6 +68,17 @@ pub fn run() {
                 store.set(AUTOSTART_KEY, false);
                 false
             };
+
+            let play_sound = if let Some(val) = store.get(PLAY_SOUND_KEY) {
+                val.as_bool().unwrap_or(true)
+            } else {
+                store.set(PLAY_SOUND_KEY, true);
+                true
+            };
+
+            let app_state = app.state::<AppState>();
+            let mut sound_state = app_state.play_sound.lock().unwrap();
+            *sound_state = play_sound;
 
             let modifiers = store
                 .get(HOTKEY_MODIFIERS_KEY)
@@ -112,6 +126,14 @@ pub fn run() {
                 autostart_enabled,
                 None::<&str>,
             )?;
+            let play_sound_menu_item = CheckMenuItem::with_id(
+                app,
+                "toggle_play_sound",
+                "Play sound on clip",
+                true,
+                play_sound,
+                None::<&str>,
+            )?;
             let menu = Menu::with_items(
                 app,
                 &[
@@ -120,6 +142,7 @@ pub fn run() {
                     &PredefinedMenuItem::separator(app).unwrap(),
                     &change_hotkey,
                     &autostart_menu_item,
+                    &play_sound_menu_item,
                     &PredefinedMenuItem::quit(app, Some("Quit")).unwrap(),
                 ],
             )?;
@@ -143,6 +166,13 @@ pub fn run() {
                         .unwrap()
                         .build()
                         .unwrap();
+                    }
+                    "toggle_play_sound" => {
+                        let app_state = app.state::<AppState>();
+                        let mut sound_state = app_state.play_sound.lock().unwrap();
+                        *sound_state = !*sound_state;
+                        store.set(PLAY_SOUND_KEY, *sound_state);
+                        let _ = play_sound_menu_item.set_checked(*sound_state);
                     }
                     _ => {
                         println!("Unknown menu item clicked");
@@ -169,12 +199,14 @@ pub fn run() {
                             Modifiers::from_bits(hotkey.0),
                             Code::from_str(&hotkey.1).expect("Invalid key"),
                         );
-                        log::info!("A shortcut was pressed: {:?}", shortcut);
+
                         if shortcut == &hotkey && event.state() == ShortcutState::Pressed {
                             log::info!("Clip hotkey pressed: {:?}", hotkey);
                             let uuid = Uuid::new_v4();
                             app.clipboard().write_text(uuid.to_string()).unwrap();
-                            let _ = play_notification(app);
+                            if *state.play_sound.lock().unwrap() {
+                                let _ = play_clip_sound(app);
+                            }
                         }
                     })
                     .build(),
@@ -213,7 +245,7 @@ fn toggle_autostart<R: Runtime>(
     Ok(())
 }
 
-fn play_notification(app: &tauri::AppHandle) -> Result<(), Box<dyn Error>> {
+fn play_clip_sound(app: &tauri::AppHandle) -> Result<(), Box<dyn Error>> {
     let path = app
         .path()
         .resolve("assets/notification.mp3", BaseDirectory::Resource)?;
